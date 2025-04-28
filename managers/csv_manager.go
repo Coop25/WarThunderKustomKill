@@ -2,7 +2,6 @@ package manager
 
 import (
 	"bufio"
-	"encoding/csv"
 	"fmt"
 	"os"
 	"strings"
@@ -16,7 +15,7 @@ type CSVRowTarget struct {
 
 type CSVManager struct {
 	FilePath string
-	Rows     [][]string
+	Lines    []string
 }
 
 func NewCSVManager(filePath string) (*CSVManager, error) {
@@ -26,37 +25,41 @@ func NewCSVManager(filePath string) (*CSVManager, error) {
 	}
 	defer file.Close()
 
-	reader := csv.NewReader(file)
-	rows, err := reader.ReadAll()
-	if err != nil {
+	var lines []string
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		lines = append(lines, scanner.Text())
+	}
+	if err := scanner.Err(); err != nil {
 		return nil, err
 	}
 
 	return &CSVManager{
 		FilePath: filePath,
-		Rows:     rows,
+		Lines:    lines,
 	}, nil
 }
 
 func (cm *CSVManager) UpdateSecondColumnInteractive(targets []CSVRowTarget) error {
 	reader := bufio.NewReader(os.Stdin)
 
-	for i, row := range cm.Rows {
-		if i == 0 {
-			continue // skip header
-		}
-
-		if len(row) < 2 {
+	for i, line := range cm.Lines {
+		fields := strings.Split(line, ";")
+		if len(fields) < 2 {
 			continue
 		}
 
+		key := strings.Trim(fields[0], `"`) // Remove surrounding quotes
+
 		for _, target := range targets {
-			if row[0] == target.Key {
-				fmt.Printf("Enter new value for \"%s\" (or leave empty to skip): ", target.HumanName)
+			if key == target.Key {
+				currentValue := strings.Trim(fields[1], `"`)
+				fmt.Printf(`Enter new value for "%s" (currently "%s", leave empty to skip): `, target.HumanName, currentValue)
 				input, _ := reader.ReadString('\n')
 				input = strings.TrimSpace(input)
 				if input != "" {
-					cm.Rows[i][1] = input
+					fields[1] = `"` + input + `"` // Re-wrap updated field
+					cm.Lines[i] = strings.Join(fields, ";")
 				}
 			}
 		}
@@ -65,17 +68,18 @@ func (cm *CSVManager) UpdateSecondColumnInteractive(targets []CSVRowTarget) erro
 }
 
 func (cm *CSVManager) ResetSecondColumnForMatches(targets []CSVRowTarget) error {
-	for i, row := range cm.Rows {
-		if i == 0 {
-			continue // skip header
-		}
-		if len(row) < 2 {
+	for i, line := range cm.Lines {
+		fields := strings.Split(line, ";")
+		if len(fields) < 2 {
 			continue
 		}
 
+		key := strings.Trim(fields[0], `"`) // Remove quotes
+
 		for _, target := range targets {
-			if row[0] == target.Key {
-				cm.Rows[i][1] = target.OriginalVal
+			if key == target.Key {
+				fields[1] = `"` + target.OriginalVal + `"` // Rewrap with quotes
+				cm.Lines[i] = strings.Join(fields, ";")
 			}
 		}
 	}
@@ -89,8 +93,14 @@ func (cm *CSVManager) Save() error {
 	}
 	defer file.Close()
 
-	writer := csv.NewWriter(file)
+	writer := bufio.NewWriter(file)
 	defer writer.Flush()
 
-	return writer.WriteAll(cm.Rows)
+	for _, line := range cm.Lines {
+		_, err := writer.WriteString(line + "\n")
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }

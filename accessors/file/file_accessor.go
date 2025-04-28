@@ -1,4 +1,4 @@
-package accessor
+package file
 
 import (
 	"io/ioutil"

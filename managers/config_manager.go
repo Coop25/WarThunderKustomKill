@@ -3,7 +3,7 @@ package manager
 import (
 	"strings"
 
-	"github.com/Coop25/WarThunderKustomKill/accessor"
+	"github.com/Coop25/WarThunderKustomKill/accessors/file"
 )
 
 type ConfigManager struct {
@@ -12,7 +12,7 @@ type ConfigManager struct {
 }
 
 func NewConfigManager(filePath string) (*ConfigManager, error) {
-	content, err := accessor.ReadFile(filePath)
+	content, err := file.ReadFile(filePath)
 	if err != nil {
 		return nil, err
 	}
@@ -44,7 +44,7 @@ func (cm *ConfigManager) RemoveInsertedLine(markerText string) error {
 	var newLines []string
 
 	for _, line := range lines {
-		if strings.TrimSpace(line) == markerText {
+		if strings.TrimSpace(line) == strings.TrimSpace(markerText) {
 			continue
 		}
 		newLines = append(newLines, line)
@@ -55,5 +55,15 @@ func (cm *ConfigManager) RemoveInsertedLine(markerText string) error {
 }
 
 func (cm *ConfigManager) Save() error {
-	return accessor.WriteFile(cm.FilePath, cm.Content)
+	return file.WriteFile(cm.FilePath, cm.Content)
+}
+
+func (cm *ConfigManager) HasInsertedLine(markerText string) bool {
+	lines := strings.Split(cm.Content, "\n")
+	for _, line := range lines {
+		if strings.TrimSpace(line) == strings.TrimSpace(markerText) {
+			return true
+		}
+	}
+	return false
 }
