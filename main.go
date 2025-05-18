@@ -22,6 +22,13 @@ var targets = []manager.CSVRowTarget{
 }
 
 func main() {
+	logFile, err := manager.NewLogManager()
+	if err != nil {
+		fmt.Printf("Failed to set up logging: %v\n", err)
+		return
+	}
+	defer logFile.Close()
+
 	wtPath, err := manager.FindWarThunderPath()
 	if err != nil {
 		panic(err)
